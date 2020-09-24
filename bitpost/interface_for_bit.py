@@ -6,7 +6,7 @@ import binascii
 import hashlib
 
 
-class BipostInterfaceForBit(BitpostInterface):
+class BitpostInterfaceForBit(BitpostInterface):
 
     pubkey_hex = ''
 
