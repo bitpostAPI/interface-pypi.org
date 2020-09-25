@@ -31,9 +31,9 @@ class BitpostInterface:
             return answer.json()['data']['wallettokens']['active'][0]
         return None
 
-    def create_bitpost_request(self, rawTxs, target_in_minutes=60, delay=1, broadcast_lowest_feerate=False, feerates=[]):
+    def create_bitpost_request(self, rawTxs, target=3600, delay=1, broadcast_lowest_feerate=False, feerates=[]):
         self._cache_timestamp = time.time()
-        return BitpostRequest(rawTxs, target_in_minutes=target_in_minutes, delay=delay,
+        return BitpostRequest(rawTxs, target_in_seconds=target, delay=delay,
                               broadcast_lowest_feerate=broadcast_lowest_feerate, feerates=feerates,
                               api_key=self.api_key, wallettoken=self.wallettoken)
 
@@ -70,8 +70,7 @@ class BitpostInterface:
 
 class BitpostRequest:
 
-    target_in_minutes = 60
-    deadline = time.time() + target_in_minutes*60
+    absolute_epoch_target = 3600
     delay = 1
     broadcast_lowest_feerate = False
 
@@ -83,12 +82,11 @@ class BitpostRequest:
     id = None
     answer = None
 
-    def __init__(self, rawTxs, target_in_minutes=60, delay=1, broadcast_lowest_feerate=False,
+    def __init__(self, rawTxs, target_in_seconds=3600, delay=1, broadcast_lowest_feerate=False,
                  feerates=[], api_key = None, wallettoken = None):
         self.rawTxs = rawTxs
         self.delay = delay
-        self.target_in_minutes = target_in_minutes
-        self.deadline = time.time() + self.target_in_minutes*60
+        self.absolute_epoch_target = BitpostRequest._to_epoch(target_in_seconds)
         self.broadcast_lowest_feerate = broadcast_lowest_feerate
         self.feerates = feerates
         self.api_key = api_key
@@ -96,11 +94,20 @@ class BitpostRequest:
         self.wallettoken = wallettoken
         self.notifications = []
 
-    def change_request(self, new_target_mins=None, new_delay=None, new_rawtx=[], print_answer=True):
+    @classmethod
+    def _to_epoch(cls, raw_target):
+        if raw_target < 100_000_000:
+            return round(dt.datetime.now().timestamp() + raw_target)
+        elif raw_target > 10_000_000_000:
+            return round(raw_target/1000)  # must be an absolute timestamp in milliseconds
+        else:
+            return raw_target
+
+    def change_request(self, new_target=None, new_delay=None, new_rawtx=[], print_answer=True):
         if self.wallettoken == None:
             print('Cant change request if ')
 
-        query = self.create_change_query(new_target_mins, new_delay, new_rawtx)
+        query = self._create_change_query(BitpostRequest._to_epoch(new_target), new_delay, new_rawtx)
         answer = requests.put(query, data=str(new_rawtx))
         if print_answer:
             print("status code: " + str(answer.status_code))
@@ -109,21 +116,20 @@ class BitpostRequest:
         if answer != 200:
             return answer.json()
 
-        self.target_in_minutes = new_target_mins
+        self.absolute_epoch_target = BitpostRequest._to_epoch(new_target)
         self.delay = new_delay
         if new_rawtx != None:
             self.rawTxs += new_rawtx
         return answer.json()
 
-    def create_change_query(self, new_target_mins, new_delay, new_rawtx):
+    def _create_change_query(self, absolute_epoch_target, new_delay, new_rawtx):
         if self.wallettoken is None or self.id is None:
             print('Cant change a request without its id and wallettoken!')
             raise ('Invalid request change.')
 
         query = baseURL + '/request?&wallettoken=' + self.wallettoken + '&id=' + self.id
-        if new_target_mins is not None:
-            target = round(dt.datetime.now().timestamp() + new_target_mins * 60)
-            query += '&target=' + str(target)
+        if absolute_epoch_target is not None:
+            query += '&target=' + str(absolute_epoch_target)
 
         if new_delay is None:
             query += '&query=' + str(new_delay)
@@ -133,9 +139,8 @@ class BitpostRequest:
 
         return query
 
-    def create_query(self):
-        target = round(dt.datetime.now().timestamp() + self.target_in_minutes * 60)
-        query = baseURL + "/request?target=" + str(target) + "&delay=" + str(self.delay)
+    def _create_query(self):
+        query = baseURL + "/request?target=" + str(self.absolute_epoch_target) + "&delay=" + str(self.delay)
 
         if self.wallettoken is not None:
             query += '&wallettoken=' + self.wallettoken
@@ -148,7 +153,7 @@ class BitpostRequest:
         return query
 
     def send_request(self, print_before=True, print_answer=True):
-        query = self.create_query()
+        query = self._create_query()
 
         if print_before:
             print("feerates = " + str(self.feerates))
@@ -179,21 +184,6 @@ class BitpostRequest:
         answer = requests.delete(query)
         if answer.status_code >=400:
             print('Failed to cancel request with id=' + self.id)
-
-    def get_preliminary_result(self):
-        if self.answer['status'].lower() == 'success':
-            return True
-        return False
-
-    def get_final_result(self):
-        trackingURL = self.answer['data']['devurl']
-
-        while time.time() < self.deadline + 3600:
-            time.sleep(60)
-            trackData = requests.get(trackingURL)
-            if trackData.json()['data']['status'].lower() == 'complete':
-                return True
-        return False
 
     # Warning: untested feature. Currently supported platforms are: twitter (DM), email, webhook
     def add_notification(self, platform, address, subscription=None):
