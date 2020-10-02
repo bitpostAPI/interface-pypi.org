@@ -67,6 +67,16 @@ class BitpostInterface:
         self._cache_showrawtx = showrawtx
         self._cached_getUTXOsData = answer.json()['data']['utxos']
 
+    @classmethod
+    def get_feerates(cls, max_feerate, size=50, can_reduce_fee=True, target=None):
+        parameters = {'maxfeerate': max_feerate, 'size': size, 'canreducefee': str(can_reduce_fee)}
+        if target is not None:
+            parameters['target'] = target
+        answer = requests.get(baseURL + '/feerateset', params=parameters)
+        if answer.status_code >= 400:
+            raise Exception("Failed to get set of feerates!")
+        return answer.json()['data']['feerates']
+
 
 class BitpostRequest:
 
@@ -125,7 +135,7 @@ class BitpostRequest:
     def _create_change_query(self, absolute_epoch_target, new_delay, new_rawtx):
         if self.wallettoken is None or self.id is None:
             print('Cant change a request without its id and wallettoken!')
-            raise ('Invalid request change.')
+            raise Exception('Invalid request change.')
 
         query = baseURL + '/request?&wallettoken=' + self.wallettoken + '&id=' + self.id
         if absolute_epoch_target is not None:
