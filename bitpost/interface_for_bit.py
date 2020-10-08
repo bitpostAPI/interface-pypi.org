@@ -56,7 +56,7 @@ class BitpostInterfaceForBit(BitpostInterface):
                 unspents.append(self._raw_utxo_to_unspent(raw_utxo))
         return unspents
 
-    def get_feerates(cls, max_feerate, size=50, can_reduce_fee=False, target=None):
+    def get_feerates(self, max_feerate, size=50, can_reduce_fee=False, target=None):
         feerates = super().get_feerates(max_feerate, size, can_reduce_fee, target)
         return [int(feerate) for feerate in feerates]
 
