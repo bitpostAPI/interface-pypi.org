@@ -2,31 +2,34 @@ import requests
 import datetime as dt
 import time
 import gzip
-baseURL = "https://api.bitpost.co"
 
 
 class BitpostInterface:
 
     wallettoken = None
     api_key = None
+    baseURL = "https://api.bitpost.co"
     next_target = round(time.time() + 3600)
     _cached_getUTXOsData = None
     _cache_timestamp = 0
     _cache_showrawtx = False
     _cache_timeout = 3
 
-    def __init__(self, wallettoken=None, api_key=None):
+    def __init__(self, wallettoken=None, api_key=None, testnet=False):
         self.wallettoken = wallettoken
         self.api_key = api_key
+        if testnet:
+            self.baseURL = "https://testnet-api.bitpost.co"
+        else:
+            self.baseURL = "https://api.bitpost.co"
 
     def set_future_target(self, target):
         self.next_target = target
 
-    @classmethod
-    def get_wallettoken(cls, pub_key_hex, signature_base64):
+    def get_wallettoken(self, pub_key_hex, signature_base64):
         signature_proof = {'signature': signature_base64.decode('ascii'), 'publickey': pub_key_hex}
         signature_proofs = [signature_proof]
-        answer = requests.post(baseURL + '/wallettokens', data=str(signature_proofs))
+        answer = requests.post(self.baseURL + '/wallettokens', data=str(signature_proofs))
         if answer.status_code == 200 and len(answer.json()['data']['wallettokens']['active']) > 0:
             return answer.json()['data']['wallettokens']['active'][0]
         return None
@@ -35,7 +38,7 @@ class BitpostInterface:
         self._cache_timestamp = time.time()
         return BitpostRequest(rawTxs, target_in_seconds=target, delay=delay,
                               broadcast_lowest_feerate=broadcast_lowest_feerate, feerates=feerates,
-                              api_key=self.api_key, wallettoken=self.wallettoken)
+                              api_key=self.api_key, wallettoken=self.wallettoken, baseURL=self.baseURL)
 
     def get_utxos_used_by_bitpost(self):
         self._fetch_utxos_data()
@@ -55,9 +58,13 @@ class BitpostInterface:
         return self._cached_getUTXOsData['path/to/psts']
 
     def _fetch_utxos_data(self, showrawtx = False):
+        if self.wallettoken is None and self.api_key is None:
+            print('Cant change request if wallettoken and API key is not set.')
+            raise Exception('Unauthorized API call: wallettoken and API key not set.')
+
         if time.time() - self._cache_timestamp < 3 and (self._cache_showrawtx or not showrawtx):
             return
-        getUTXOsQuery = baseURL + '/utxos?wallettoken=' + self.wallettoken + '&target=' + str(self.next_target) + \
+        getUTXOsQuery = self.baseURL + '/utxos?wallettoken=' + self.wallettoken + '&target=' + str(self.next_target) + \
                         '&showrawtx=' + str(showrawtx)
         answer = requests.get(getUTXOsQuery)
         if answer.status_code >= 400:
@@ -67,12 +74,11 @@ class BitpostInterface:
         self._cache_showrawtx = showrawtx
         self._cached_getUTXOsData = answer.json()['data']['utxos']
 
-    @classmethod
-    def get_feerates(cls, max_feerate, size=50, can_reduce_fee=True, target=None):
+    def get_feerates(self, max_feerate, size=50, can_reduce_fee=True, target=None):
         parameters = {'maxfeerate': max_feerate, 'size': size, 'canreducefee': str(can_reduce_fee)}
         if target is not None:
             parameters['target'] = target
-        answer = requests.get(baseURL + '/feerateset', params=parameters)
+        answer = requests.get(self.baseURL + '/feerateset', params=parameters)
         if answer.status_code >= 400:
             raise Exception("Failed to get set of feerates!")
         return answer.json()['data']['feerates']
@@ -86,6 +92,7 @@ class BitpostRequest:
 
     api_key = None
     wallettoken = None
+    baseURL = ''
 
     rawTxs = []
     feerates = []
@@ -93,7 +100,7 @@ class BitpostRequest:
     answer = None
 
     def __init__(self, rawTxs, target_in_seconds=3600, delay=1, broadcast_lowest_feerate=False,
-                 feerates=[], api_key = None, wallettoken = None):
+                 feerates=[], api_key = None, wallettoken=None, baseURL=None):
         self.rawTxs = rawTxs
         self.delay = delay
         self.absolute_epoch_target = BitpostRequest._to_epoch(target_in_seconds)
@@ -103,6 +110,7 @@ class BitpostRequest:
         self.answer = None
         self.wallettoken = wallettoken
         self.notifications = []
+        self.baseURL = baseURL
 
     @classmethod
     def _to_epoch(cls, raw_target):
@@ -114,8 +122,9 @@ class BitpostRequest:
             return raw_target
 
     def change_request(self, new_target=None, new_delay=None, new_rawtx=[], print_answer=True):
-        if self.wallettoken == None:
-            print('Cant change request if ')
+        if self.wallettoken is None and self.api_key is None:
+            print('Cant change request if wallettoken and API key is not set.')
+            raise Exception('Unauthorized API call: wallettoken and API key not set.')
 
         query = self._create_change_query(BitpostRequest._to_epoch(new_target), new_delay, new_rawtx)
         answer = requests.put(query, data=str(new_rawtx))
@@ -137,7 +146,7 @@ class BitpostRequest:
             print('Cant change a request without its id and wallettoken!')
             raise Exception('Invalid request change.')
 
-        query = baseURL + '/request?&wallettoken=' + self.wallettoken + '&id=' + self.id
+        query = self.baseURL + '/request?&wallettoken=' + self.wallettoken + '&id=' + self.id
         if absolute_epoch_target is not None:
             query += '&target=' + str(absolute_epoch_target)
 
@@ -150,7 +159,7 @@ class BitpostRequest:
         return query
 
     def _create_query(self):
-        query = baseURL + "/request?target=" + str(self.absolute_epoch_target) + "&delay=" + str(self.delay)
+        query = self.baseURL + "/request?target=" + str(self.absolute_epoch_target) + "&delay=" + str(self.delay)
 
         if self.wallettoken is not None:
             query += '&wallettoken=' + self.wallettoken
@@ -190,7 +199,7 @@ class BitpostRequest:
         if self.id == None:
             print('Cant cancel request... no id found')
             return
-        query = baseURL + "/request?wallettoken=" + self.wallettoken + "&id=" + self.id
+        query = self.baseURL + "/request?wallettoken=" + self.wallettoken + "&id=" + self.id
         answer = requests.delete(query)
         if answer.status_code >=400:
             print('Failed to cancel request with id=' + self.id)

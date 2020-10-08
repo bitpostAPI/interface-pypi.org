@@ -10,9 +10,8 @@ class BitpostInterfaceForBit(BitpostInterface):
 
     pubkey_hex = ''
 
-    def __init__(self, wallettoken, pubkey_hex):
-        super().__init__(wallettoken=wallettoken)
-        self.pubkey_hex = pubkey_hex
+    def __init__(self, wallettoken=None, api_key=None, testnet=False):
+        super().__init__(wallettoken=wallettoken, api_key=api_key, testnet=testnet)
 
     def get_change_utxos_from_bitpost(self):
         raw_change = super().get_change_utxos_from_bitpost()
@@ -57,7 +56,6 @@ class BitpostInterfaceForBit(BitpostInterface):
                 unspents.append(self._raw_utxo_to_unspent(raw_utxo))
         return unspents
 
-    @classmethod
     def get_feerates(cls, max_feerate, size=50, can_reduce_fee=False, target=None):
         feerates = super().get_feerates(max_feerate, size, can_reduce_fee, target)
         return [int(feerate) for feerate in feerates]

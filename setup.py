@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="bitpost",
-    version="1.0.4",
+    version="1.1.0",
     author="Pedro FR",
     author_email="pedro@bitpost.co",
     description="Wrapper for the bitpost API",
