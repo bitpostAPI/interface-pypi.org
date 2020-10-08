@@ -8,8 +8,6 @@ import hashlib
 
 class BitpostInterfaceForBit(BitpostInterface):
 
-    pubkey_hex = ''
-
     def __init__(self, wallettoken=None, api_key=None, testnet=False):
         super().__init__(wallettoken=wallettoken, api_key=api_key, testnet=testnet)
 
@@ -41,7 +39,7 @@ class BitpostInterfaceForBit(BitpostInterface):
         unspent = Unspent(amount=int(raw_utxo['amount']*100_000_000), confirmations=1,  # not relevant
                        script=raw_utxo['scriptPubKey'], txid=raw_utxo['txid'], txindex=raw_utxo['vout'])
 
-        if AddressUtils.HASH160(self.pubkey_hex) in raw_utxo['scriptPubKey']:
+        if '76a9' == raw_utxo['scriptPubKey'][:4]:
             unspent.set_type('p2pkh')
         else:
             unspent.set_type('np2wkh')
