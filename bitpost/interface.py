@@ -2,6 +2,7 @@ import requests
 import datetime as dt
 import time
 import gzip
+import math
 
 
 class BitpostInterface:
@@ -75,7 +76,7 @@ class BitpostInterface:
         self._cached_getUTXOsData = answer.json()['data']['utxos']
 
     def get_feerates(self, max_feerate, size=50, can_reduce_fee=True, target=None):
-        parameters = {'maxfeerate': max_feerate, 'size': size, 'canreducefee': str(can_reduce_fee)}
+        parameters = {'maxfeerate': max_feerate, 'size': min(size, math.floor(max_feerate)), 'canreducefee': str(can_reduce_fee)}
         if target is not None:
             parameters['target'] = target
         answer = requests.get(self.baseURL + '/feerateset', params=parameters)
