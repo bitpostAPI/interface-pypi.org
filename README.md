@@ -1,5 +1,13 @@
 # Purpose
+This package wraps the bitpost API so that it's easier to experiment and play with.
 
-This package has interface classes that wrap the [bitpost API](https://apidocs.bitpost.co/#bitpost-api).
-You can find tutorials/guides for the API [here](https://docs.bitpost.co) and python code 
-examples for this package [here](https://github.com/bitpostAPI/examples).
+# Install
+`pip install bitpost`
+
+# Disclaimer
+The code is distributed mostly for demo purposes, don't use it on production without proper review. Beware: HTTP requests are done synchronously!
+
+# More info
+* [API documentation](https://docs.bitpost.co)
+* [OpenAPI reference](https://apidocs.bitpost.co)
+* [Code examples](https://github.com/bitpostAPI/examples)
