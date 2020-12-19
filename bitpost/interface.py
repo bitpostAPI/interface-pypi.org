@@ -83,6 +83,17 @@ class BitpostInterface:
         if answer.status_code >= 400:
             raise Exception("Failed to get set of feerates!")
         return answer.json()['data']['feerates']
+    
+    def get_requests(self):
+        
+        parameters = {'wallettoken' : self.wallettoken}
+
+        answer = requests.get(self.baseURL + '/requests', params=parameters)
+        
+        if answer.status_code >= 400:
+            raise Exception('Failed to request orders.')
+
+        return answer.json()['data']['requests']
 
 
 class BitpostRequest:
