@@ -4,7 +4,6 @@ import time
 import gzip
 import math
 
-
 class BitpostInterface:
 
     wallettoken = None
@@ -91,10 +90,8 @@ class BitpostInterface:
         return answer.json()['data']['requests']
 
     def get_request(self, id=None):
-
-        if id == None: 
+        if id == None:
             id = self.get_requests()[-1]['id']
-
         answer = requests.get(self.baseURL + '/request', params={'query' : id})
         if answer.status_code >= 400:
             raise Exception('Failed to get request!')
@@ -167,13 +164,10 @@ class BitpostRequest:
         query = self.baseURL + '/request?&wallettoken=' + self.wallettoken + '&id=' + self.id
         if absolute_epoch_target is not None:
             query += '&target=' + str(absolute_epoch_target)
-
         if new_delay is None:
             query += '&query=' + str(new_delay)
-
         if self.api_key is not None:
             query += '&key=' + self.api_key
-
         return query
 
     def _create_query(self):
@@ -181,13 +175,10 @@ class BitpostRequest:
 
         if self.wallettoken is not None:
             query += '&wallettoken=' + self.wallettoken
-
         if self.broadcast_lowest_feerate:
             query += '&broadcast=' + str(0)
-
         if self.broadcast:
             query+= '&broadcast=' + str(self.broadcast)
-
         if self.api_key is not None:
             query += '&key=' + self.api_key
         return query
@@ -212,8 +203,6 @@ class BitpostRequest:
         if answer.status_code < 400:
             self.id = answer.json()['data']['id']
         self.answer = answer.json()
-
-
         return answer
 
     def cancel_request(self):
