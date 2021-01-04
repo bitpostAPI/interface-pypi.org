@@ -91,7 +91,10 @@ class BitpostInterface:
 
     def get_request(self, id=None):
         if id == None:
-            id = self.get_requests()[-1]['id']
+            id = self.get_requests()
+            if len(id) >= 1:
+            	id = id[-1]['id']
+            
         answer = requests.get(self.baseURL + '/request', params={'query' : id})
         if answer.status_code >= 400:
             raise Exception('Failed to get request!')
