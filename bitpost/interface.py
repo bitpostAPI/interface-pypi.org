@@ -4,7 +4,6 @@ import time
 import gzip
 import math
 
-
 class BitpostInterface:
 
     wallettoken = None
@@ -35,9 +34,9 @@ class BitpostInterface:
             return answer.json()['data']['wallettokens']['active'][0]
         return None
 
-    def create_bitpost_request(self, rawTxs, target=3600, delay=1, broadcast_lowest_feerate=False, feerates=[]):
+    def create_bitpost_request(self, rawTxs, target=3600, delay=1, broadcast=None,broadcast_lowest_feerate=False, feerates=[]):
         self._cache_timestamp = time.time()
-        return BitpostRequest(rawTxs, target_in_seconds=target, delay=delay,
+        return BitpostRequest(rawTxs, target_in_seconds=target, delay=delay, broadcast=broadcast,
                               broadcast_lowest_feerate=broadcast_lowest_feerate, feerates=feerates,
                               api_key=self.api_key, wallettoken=self.wallettoken, baseURL=self.baseURL)
 
@@ -84,11 +83,28 @@ class BitpostInterface:
             raise Exception("Failed to get set of feerates!")
         return answer.json()['data']['feerates']
 
+    def get_requests(self):
+        answer = requests.get(self.baseURL + '/requests', params={'wallettoken' : self.wallettoken})
+        if answer.status_code >= 400:
+            raise Exception('Failed to get requests!')
+        return answer.json()['data']['requests']
+
+    def get_request(self, id=None):
+        if id == None:
+            id = self.get_requests()
+            if len(id) >= 1:
+            	id = id[-1]['id']
+            
+        answer = requests.get(self.baseURL + '/request', params={'query' : id})
+        if answer.status_code >= 400:
+            raise Exception('Failed to get request!')
+        return answer.json()['data']
 
 class BitpostRequest:
 
     absolute_epoch_target = 3600
     delay = 1
+    broadcast = None
     broadcast_lowest_feerate = False
 
     api_key = None
@@ -100,11 +116,12 @@ class BitpostRequest:
     id = None
     answer = None
 
-    def __init__(self, rawTxs, target_in_seconds=3600, delay=1, broadcast_lowest_feerate=False,
+    def __init__(self, rawTxs, target_in_seconds=3600, delay=1, broadcast=None, broadcast_lowest_feerate=False,
                  feerates=[], api_key = None, wallettoken=None, baseURL=None):
         self.rawTxs = rawTxs
         self.delay = delay
         self.absolute_epoch_target = BitpostRequest._to_epoch(target_in_seconds)
+        self.broadcast = broadcast
         self.broadcast_lowest_feerate = broadcast_lowest_feerate
         self.feerates = feerates
         self.api_key = api_key
@@ -150,13 +167,10 @@ class BitpostRequest:
         query = self.baseURL + '/request?&wallettoken=' + self.wallettoken + '&id=' + self.id
         if absolute_epoch_target is not None:
             query += '&target=' + str(absolute_epoch_target)
-
         if new_delay is None:
             query += '&query=' + str(new_delay)
-
         if self.api_key is not None:
             query += '&key=' + self.api_key
-
         return query
 
     def _create_query(self):
@@ -164,10 +178,10 @@ class BitpostRequest:
 
         if self.wallettoken is not None:
             query += '&wallettoken=' + self.wallettoken
-
         if self.broadcast_lowest_feerate:
             query += '&broadcast=' + str(0)
-
+        if self.broadcast:
+            query+= '&broadcast=' + str(self.broadcast)
         if self.api_key is not None:
             query += '&key=' + self.api_key
         return query
@@ -192,8 +206,6 @@ class BitpostRequest:
         if answer.status_code < 400:
             self.id = answer.json()['data']['id']
         self.answer = answer.json()
-
-
         return answer
 
     def cancel_request(self):
