@@ -89,16 +89,12 @@ class BitpostInterface:
             raise Exception('Failed to get requests!')
         return answer.json()['data']['requests']
 
-    def get_request(self, id=None):
-        if id == None:
-            id = self.get_requests()
-            if len(id) >= 1:
-            	id = id[-1]['id']
-            
+    def get_request(self, id):
         answer = requests.get(self.baseURL + '/request', params={'query' : id})
         if answer.status_code >= 400:
             raise Exception('Failed to get request!')
         return answer.json()['data']
+
 
 class BitpostRequest:
 
@@ -230,3 +226,11 @@ class BitpostRequest:
             existing_subs = [sub['name'] for sub in channel['subscriptions']]
             if subscription not in existing_subs:
                 channel['subscriptions'].append({'name': subscription})
+
+    def get_request(self):
+        if self.id is None:
+            raise Exception('Request hasn\'t been been created yet, it has no ID.')
+        answer = requests.get(self.baseURL + '/request', params={'query': self.id})
+        if answer.status_code >= 400:
+            raise Exception('Failed to get request. Server replied with status code=' + str(answer.status_code))
+        return answer.json()['data']
